@@ -1,0 +1,23 @@
+
+{
+  "citizens": [
+    {
+      "id": "1",
+      "email": "citizen@example.com",
+      "password": "password",
+      "name": "John Doe",
+      "type": "citizen",
+      "xp_points": 0
+    }
+  ],
+  "ngos": [
+    {
+      "id": "2",
+      "email": "ngo@example.com",
+      "password": "password",
+      "name": "Green Earth NGO",
+      "type": "ngo",
+      "xp_points": 100
+    }
+  ]
+}
