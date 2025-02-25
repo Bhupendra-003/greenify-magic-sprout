@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -46,15 +47,12 @@ const NGODashboard = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Load issues from localStorage
     const storedIssues = JSON.parse(localStorage.getItem("issuesData") || "{}");
     const sortedIssues = [...storedIssues.issues].sort((a, b) => {
-      // First sort by severity
       const severityOrder = { high: 3, medium: 2, low: 1 };
       const severityDiff = severityOrder[b.severity as keyof typeof severityOrder] -
         severityOrder[a.severity as keyof typeof severityOrder];
 
-      // If severity is equal, sort by priorityRating
       if (severityDiff === 0) {
         return (b.priorityRating || 0) - (a.priorityRating || 0);
       }
@@ -62,19 +60,37 @@ const NGODashboard = () => {
     });
     setIssues(sortedIssues);
 
-    // Load top NGOs
     const storedData = JSON.parse(localStorage.getItem("usersData") || "{}");
     const sortedNGOs = [...storedData.ngos]
       .sort((a, b) => b.xp_points - a.xp_points)
       .slice(0, 5);
     setTopNGOs(sortedNGOs);
   }, []);
+
   const refreshTopNGOs = () => {
     const storedData = JSON.parse(localStorage.getItem("usersData") || "{}");
     const sortedNGOs = [...storedData.ngos]
       .sort((a, b) => b.xp_points - a.xp_points)
       .slice(0, 5);
     setTopNGOs(sortedNGOs);
+  };
+
+  const updateCitizenXP = (citizenId: string, xpChange: number) => {
+    const storedData = JSON.parse(localStorage.getItem("usersData") || "{}");
+    const updatedCitizens = storedData.citizens.map((citizen: User) => {
+      if (citizen.id === citizenId) {
+        return {
+          ...citizen,
+          xp_points: Math.max(0, citizen.xp_points + xpChange), // Ensure XP doesn't go below 0
+        };
+      }
+      return citizen;
+    });
+    
+    localStorage.setItem("usersData", JSON.stringify({
+      ...storedData,
+      citizens: updatedCitizens,
+    }));
   };
 
   const handleSolveIssue = async () => {
@@ -90,7 +106,6 @@ const NGODashboard = () => {
     try {
       const imageUrl = URL.createObjectURL(solutionImage);
 
-      // Update the issues data
       const updatedIssues = issues.map(issue =>
         issue.id === selectedIssue.id
           ? {
@@ -103,16 +118,17 @@ const NGODashboard = () => {
           : issue
       );
 
-      // Update localStorage
-      const storedIssues = JSON.parse(localStorage.getItem("issuesData") || "{}");
-      storedIssues.issues = updatedIssues;
-      localStorage.setItem("issuesData", JSON.stringify(storedIssues));
+      localStorage.setItem("issuesData", JSON.stringify({ issues: updatedIssues }));
       setIssues(updatedIssues);
 
-      // Update NGO's XP points (+200 per solved issue)
+      // Update NGO's XP points
       const newXP = (user?.xp_points || 0) + 200;
       updateUserXP(user!.id, newXP);
-      refreshTopNGOs(); // Add this line
+      
+      // Update citizen's XP points (+100 for solved issue)
+      updateCitizenXP(selectedIssue.reporter_id, 100);
+
+      refreshTopNGOs();
 
       toast({
         title: "Success",
@@ -129,6 +145,42 @@ const NGODashboard = () => {
       });
     }
   };
+
+  const handleReportIssue = () => {
+    if (!selectedIssue) return;
+
+    try {
+      const updatedIssues = issues.map(issue =>
+        issue.id === selectedIssue.id
+          ? {
+            ...issue,
+            status: "rejected",
+            solver_id: user!.id,
+          }
+          : issue
+      );
+
+      localStorage.setItem("issuesData", JSON.stringify({ issues: updatedIssues }));
+      setIssues(updatedIssues);
+
+      // Deduct 10 XP points from citizen
+      updateCitizenXP(selectedIssue.reporter_id, -10);
+
+      toast({
+        title: "Issue Reported",
+        description: "The issue has been marked as rejected and XP points have been deducted",
+      });
+
+      setSelectedIssue(null);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to report issue",
+      });
+    }
+  };
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       setSolutionImage(event.target.files[0]);
@@ -217,12 +269,13 @@ const NGODashboard = () => {
                 <div className="flex flex-col items-end gap-2">
                   <div className="flex gap-2">
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${issue.severity === "high"
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        issue.severity === "high"
                           ? "bg-red-100 text-red-800"
                           : issue.severity === "medium"
                             ? "bg-yellow-100 text-yellow-800"
                             : "bg-green-100 text-green-800"
-                        }`}
+                      }`}
                     >
                       {issue.severity}
                     </span>
@@ -233,15 +286,15 @@ const NGODashboard = () => {
                   <Button
                     size="sm"
                     onClick={() => setSelectedIssue(issue)}
-                    disabled={issue.status === "solved"}
+                    disabled={issue.status === "solved" || issue.status === "rejected"}
                   >
-                    {issue.status === "solved" ? "Solved" : "View Details"}
+                    {issue.status === "solved" ? "Solved" : 
+                     issue.status === "rejected" ? "Rejected" : "View Details"}
                   </Button>
                 </div>
               </div>
             </Card>
           ))}
-
         </div>
       </main>
 
@@ -279,11 +332,13 @@ const NGODashboard = () => {
               <div>
                 <Label>Issue Image</Label>
                 {selectedIssue.image_url && (
-                  <img
-                    src={selectedIssue.image_url}
-                    alt="Issue"
-                    className="w-full h-64 object-cover rounded-lg mt-2"
-                  />
+                  <div className="mt-2 rounded-lg overflow-hidden">
+                    <img
+                      src={selectedIssue.image_url}
+                      alt="Issue"
+                      className="w-full h-64 object-cover rounded-lg"
+                    />
+                  </div>
                 )}
               </div>
 
@@ -304,9 +359,20 @@ const NGODashboard = () => {
                   <Button variant="outline">Close</Button>
                 </DialogClose>
                 {selectedIssue.status === "pending" && (
-                  <Button onClick={handleSolveIssue} disabled={!solutionImage}>
-                    Mark as Solved
-                  </Button>
+                  <>
+                    <Button 
+                      variant="destructive" 
+                      onClick={handleReportIssue}
+                    >
+                      Report Issue
+                    </Button>
+                    <Button 
+                      onClick={handleSolveIssue} 
+                      disabled={!solutionImage}
+                    >
+                      Mark as Solved
+                    </Button>
+                  </>
                 )}
               </div>
             </div>

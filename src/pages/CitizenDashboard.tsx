@@ -11,7 +11,6 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
-import issuesData from "../data/issues.json";
 
 interface Issue {
   id: string;
@@ -37,22 +36,17 @@ const CitizenDashboard = () => {
   const [topCitizens, setTopCitizens] = useState<User[]>([]);
   const navigate = useNavigate();
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
-
-  const [loading, setLoading] = useState(true);
-  const [storedIssues, setStoredIssues] = useState({ issues: [] });
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchIssues = async () => {
       try {
-        // Your fetch logic here
         const data = JSON.parse(localStorage.getItem("issuesData") || "{}");
-        setStoredIssues(data);
         const userIssues = data.issues.filter(
           (issue: any) => issue.reporter_id === user?.id
         );
         setIssues(userIssues);
 
-        // Load top citizens
         const storedData = JSON.parse(localStorage.getItem("usersData") || "{}");
         const sortedCitizens = [...storedData.citizens]
           .sort((a: any, b: any) => b.xp_points - a.xp_points)
@@ -60,13 +54,34 @@ const CitizenDashboard = () => {
         setTopCitizens(sortedCitizens);
       } catch (error) {
         console.error('Failed to fetch issues:', error);
-      } finally {
-        setLoading(false);
       }
     };
 
     fetchIssues();
   }, [user]);
+
+  const handleDeleteIssue = (issueId: string) => {
+    try {
+      const storedIssues = JSON.parse(localStorage.getItem("issuesData") || "{}");
+      const updatedIssues = storedIssues.issues.filter((issue: Issue) => issue.id !== issueId);
+      localStorage.setItem("issuesData", JSON.stringify({ issues: updatedIssues }));
+      
+      // Update local state
+      setIssues(issues.filter(issue => issue.id !== issueId));
+      
+      toast({
+        title: "Success",
+        description: "Issue has been deleted successfully",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete issue",
+      });
+    }
+  };
+
   return (
     <div style={{ backgroundImage: "url('https://www.internacionalhi.com/wp-content/uploads/2017/01/texture-green-paper-pattern-scratch-background-photo-hd-wallpaper.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }} className="min-h-screen bg-gray-50">
       <nav className="bg-green-100 shadow-sm">
@@ -143,34 +158,52 @@ const CitizenDashboard = () => {
                       className={
                         issue.status === "solved"
                           ? "text-green-600"
+                          : issue.status === "rejected"
+                          ? "text-red-600"
                           : "text-yellow-600"
                       }
                     >
                       {issue.status}
                     </span>
+                    {issue.status === "rejected" && (
+                      <span className="text-red-600 ml-2">(-10 XP)</span>
+                    )}
                   </p>
                   <p className="text-sm text-gray-600">
                     Date: {new Date(issue.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    issue.severity === "high"
-                      ? "bg-red-100 text-red-800"
-                      : issue.severity === "medium"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-green-100 text-green-800"
-                  }`}
-                >
-                  {issue.severity}
-                </span>
+                <div className="flex gap-2">
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      issue.severity === "high"
+                        ? "bg-red-100 text-red-800"
+                        : issue.severity === "medium"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-green-100 text-green-800"
+                    }`}
+                  >
+                    {issue.severity}
+                  </span>
+                  {(issue.status === "solved" || issue.status === "rejected") && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteIssue(issue.id);
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                </div>
               </div>
             </Card>
           ))}
         </div>
       </main>
 
-      {/* Add Leaderboard */}
       <div className="container mx-auto px-4 py-8">
         <h2 className="text-xl font-semibold bg-black p-2 px-4 rounded-full w-fit text-gray-100 mb-4">Top Citizens</h2>
         <div className="space-y-4">
