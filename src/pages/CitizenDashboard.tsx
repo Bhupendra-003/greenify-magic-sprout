@@ -1,9 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { AlertCircle, Trophy } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
