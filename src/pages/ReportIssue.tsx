@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -85,10 +84,6 @@ const ReportIssue = () => {
 
       // Save to localStorage
       localStorage.setItem("issuesData", JSON.stringify(updatedIssues));
-
-      // Update user's XP points (+50 for reporting an issue)
-      const newXP = (user?.xp_points || 0) + 50;
-      updateUserXP(user!.id, newXP);
 
       toast({
         title: "Report submitted",

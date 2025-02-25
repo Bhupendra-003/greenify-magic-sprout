@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -21,6 +20,7 @@ interface Issue {
   severity: string;
   created_at: string;
   solution_image_url: string | null;
+  image_url: string | null;
   solver_id: string | null;
 }
 
@@ -61,28 +61,6 @@ const CitizenDashboard = () => {
 
     fetchIssues();
   }, [user]);
-
-  const handleDeleteIssue = (issueId: string) => {
-    try {
-      const storedIssues = JSON.parse(localStorage.getItem("issuesData") || "{}");
-      const updatedIssues = storedIssues.issues.filter((issue: Issue) => issue.id !== issueId);
-      localStorage.setItem("issuesData", JSON.stringify({ issues: updatedIssues }));
-      
-      // Update local state
-      setIssues(issues.filter(issue => issue.id !== issueId));
-      
-      toast({
-        title: "Success",
-        description: "Issue has been deleted successfully",
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to delete issue",
-      });
-    }
-  };
 
   return (
     <div style={{ backgroundImage: "url('https://www.internacionalhi.com/wp-content/uploads/2017/01/texture-green-paper-pattern-scratch-background-photo-hd-wallpaper.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }} className="min-h-screen bg-gray-50">
@@ -143,10 +121,10 @@ const CitizenDashboard = () => {
             <Card 
               key={issue.id} 
               className={`p-4 ${
-                issue.status === "solved" ? "cursor-pointer hover:bg-gray-50" : ""
+                (issue.status === "solved" || issue.status === "rejected") ? "cursor-pointer hover:bg-gray-50" : ""
               }`}
               onClick={() => {
-                if (issue.status === "solved") {
+                if (issue.status === "solved" || issue.status === "rejected") {
                   setSelectedIssue(issue);
                 }
               }}
@@ -175,7 +153,7 @@ const CitizenDashboard = () => {
                     Date: {new Date(issue.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div>
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-medium ${
                       issue.severity === "high"
@@ -187,18 +165,6 @@ const CitizenDashboard = () => {
                   >
                     {issue.severity}
                   </span>
-                  {(issue.status === "solved" || issue.status === "rejected") && (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteIssue(issue.id);
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  )}
                 </div>
               </div>
             </Card>
@@ -227,13 +193,30 @@ const CitizenDashboard = () => {
       <Dialog open={!!selectedIssue} onOpenChange={() => setSelectedIssue(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Solved Issue</DialogTitle>
+            <DialogTitle>
+              {selectedIssue?.status === "solved" ? "Solved Issue" : "Rejected Issue"}
+            </DialogTitle>
           </DialogHeader>
           {selectedIssue && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <h3 className="font-semibold text-lg">{selectedIssue.title}</h3>
-                {selectedIssue.solution_image_url && (
+                {selectedIssue.status === "rejected" && (
+                  <>
+                    <p className="text-red-600 font-semibold">XP Points Deducted: -10</p>
+                    {selectedIssue.image_url && (
+                      <div>
+                        <p className="text-sm text-gray-600 mb-2">Your Submitted Image:</p>
+                        <img
+                          src={selectedIssue.image_url}
+                          alt="Submitted"
+                          className="w-full h-64 object-cover rounded-lg"
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+                {selectedIssue.status === "solved" && selectedIssue.solution_image_url && (
                   <div>
                     <p className="text-sm text-gray-600 mb-2">Solution Image:</p>
                     <img
