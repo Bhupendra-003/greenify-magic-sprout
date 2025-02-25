@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -30,6 +31,13 @@ const ReportIssue = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const calculatePriorityRating = (severity: string, description: string): number => {
+    // Simple priority calculation based on severity and description length
+    const severityScore = severity === 'high' ? 3 : severity === 'medium' ? 2 : 1;
+    const descriptionScore = Math.min(description.length / 100, 2); // Cap at 2
+    return Math.round((severityScore + descriptionScore) * 10) / 10;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !description || !severity || !verified || !location) {
@@ -44,21 +52,13 @@ const ReportIssue = () => {
     try {
       setLoading(true);
 
-      // Get priority rating from server
-      const response = await fetch('/api/getPriorityRating', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query: description, severity }),
-      });
+      // Calculate priority rating locally
+      const priorityRating = calculatePriorityRating(severity, description);
 
-      if (!response.ok) {
-        throw new Error(`Fetch HTTP error! status: ${response.status}`);
+      let imageUrl = null;
+      if (image) {
+        imageUrl = URL.createObjectURL(image);
       }
-      
-      const data = await response.json();
-      const priorityRating = data.rating;
 
       // Create new issue
       const newIssue = {
@@ -69,19 +69,21 @@ const ReportIssue = () => {
         severity,
         location,
         reporter_id: user!.id,
-        image_url: null,
+        image_url: imageUrl,
         created_at: new Date().toISOString(),
         solver_id: null,
         solution_image_url: null,
         solved_at: null,
-        priorityRating, // Add priority rating to the issue
+        priorityRating,
       };
 
-      // Update issues in localStorage
-      const storedIssues = JSON.parse(localStorage.getItem("issuesData") || "{}");
+      // Get existing issues or initialize empty array
+      const existingData = JSON.parse(localStorage.getItem("issuesData") || "{}");
       const updatedIssues = {
-        issues: [...(storedIssues.issues || []), newIssue]
+        issues: [...(existingData.issues || []), newIssue]
       };
+
+      // Save to localStorage
       localStorage.setItem("issuesData", JSON.stringify(updatedIssues));
 
       // Update user's XP points (+50 for reporting an issue)
@@ -187,7 +189,7 @@ const ReportIssue = () => {
 
             <div className="space-y-2">
               <Label htmlFor="severity">Severity</Label>
-              <Select onValueChange={setSeverity}>
+              <Select onValueChange={setSeverity} required>
                 <SelectTrigger>
                   <SelectValue placeholder="Select severity level" />
                 </SelectTrigger>
